@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#define BLOCK_SIZE  4096 // Pagesize on my machine
+#define BLOCK_SIZE  128 // 4096 // Pagesize on my machine
 
 typedef struct {
     void *prev_start;
@@ -11,7 +11,8 @@ typedef struct {
     void *next_start;
 }  Chunk;
 
-void *top= NULL;
+void *top = NULL;
+void *first;
 
 /*
 * Initialize a chunk at chunk_start of size size
@@ -26,19 +27,18 @@ void init_chunk(void *prev_start, void *chunk_start, size_t size, void *next_sta
 
 void *cust_malloc(size_t size){
     // FOR NOW ASSUME size < SIZE_BLOCK
-    printf("Malloc called with size %lu\n", size);
     void *new_chunk_start;
-    if(NULL == top){
+    if(NULL == first){
         top = sbrk(0);
         sbrk(BLOCK_SIZE);
-        new_chunk_start = top;
-        init_chunk(NULL, top, size, NULL);
+        first = top;
+        new_chunk_start = first;
+        init_chunk(NULL, first, size, NULL);
     }else{
-        Chunk * curr = (Chunk *)top;
+        Chunk * curr = (Chunk *)first;
         Chunk * next = (Chunk *)(curr->next_start);
         for(;NULL != curr->next_start && (curr->chunk_end - next->chunk_start >= size+sizeof(Chunk));
         curr = next, next = (Chunk *)(next->next_start));
-        printf("%p\n", curr->next_start);
 
 
         new_chunk_start = curr->chunk_end+1; // TODO Assume for now that we don't need additional blocks
@@ -60,13 +60,32 @@ void *cust_malloc(size_t size){
     return new_chunk_start+sizeof(Chunk);
 }
 
-void cust_free(void *ptr){
+void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
+    Chunk * curr = (Chunk *)(ptr-sizeof(Chunk));
+    // Connect the 2 neighbours
+    Chunk *prev = ((Chunk *)curr->prev_start);
+    Chunk *next = ((Chunk *)curr->next_start);
 
+    if(prev != NULL && next == NULL){ // The last element on the heap
+        prev->next_start = NULL;
+    }else if(prev == NULL && next != NULL){ // The first element on the heap
+        next->prev_start = NULL;
+        first = next;
+    }else if(prev != NULL && next != NULL){
+        prev->next_start = next->chunk_start;
+        next->prev_start = prev->chunk_start;
+    }else{ // Remove the last element
+        first = NULL; 
+    }
+
+     // Remove the pointers from curr to its neighbours
+    curr->next_start = NULL;
+    curr->prev_start = NULL;
 }
 
 void heapdump(){
     printf("Printing the values on the heap ... \n");
-    Chunk * curr = (Chunk *)top;
+    Chunk * curr = (Chunk *)first;
     for(int i = 0; NULL != curr; curr = (Chunk *)(curr->next_start), i++){
         printf("#################\n");
         printf("Chunk #%d\n", i);

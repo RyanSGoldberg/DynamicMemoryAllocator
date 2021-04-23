@@ -18,6 +18,11 @@ int main(int argc, char **argv){
     char *z = cust_malloc(strlen(c)+1);
     strncpy(z, c, strlen(c)+1);
     printf("%s\n", z);
+    // Exactly 128 bytes are on the heap rn
+    char *i = cust_malloc(1);
+    *i = '5';
+    printf("%s\n", i);
+
     cust_free(x);
-    cust_free(y);
+    heapdump();
 }
