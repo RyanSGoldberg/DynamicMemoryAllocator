@@ -29,16 +29,14 @@ void *cust_malloc(size_t size){
     printf("Malloc called with size %lu\n", size);
     void *new_chunk_start;
     if(NULL == top){
-        printf("First\n");
         top = sbrk(0);
         sbrk(BLOCK_SIZE);
         new_chunk_start = top;
         init_chunk(NULL, top, size, NULL);
     }else{
-        printf("Subsequent\n");
         Chunk * curr = (Chunk *)top;
         Chunk * next = (Chunk *)(curr->next_start);
-        for(;NULL != curr->next_start && (curr->chunk_end - next->chunk_start < size+sizeof(Chunk));
+        for(;NULL != curr->next_start && (curr->chunk_end - next->chunk_start >= size+sizeof(Chunk));
         curr = next, next = (Chunk *)(next->next_start));
         printf("%p\n", curr->next_start);
 
@@ -50,7 +48,7 @@ void *cust_malloc(size_t size){
             // We have reached the end since there was no space earlier
             init_chunk(curr->chunk_start, new_chunk_start, size, NULL);
             // Attach it on the back end
-            curr->next_start = new_chunk_start;
+            curr->next_start = ((Chunk *)new_chunk_start)->chunk_start;;
         }else{
             // Insert the new chunk into the open slot
             init_chunk(curr->chunk_start, new_chunk_start, size, next->chunk_start);
@@ -64,4 +62,19 @@ void *cust_malloc(size_t size){
 
 void cust_free(void *ptr){
 
+}
+
+void heapdump(){
+    printf("Printing the values on the heap ... \n");
+    Chunk * curr = (Chunk *)top;
+    for(int i = 0; NULL != curr; curr = (Chunk *)(curr->next_start), i++){
+        printf("#################\n");
+        printf("Chunk #%d\n", i);
+        printf("\tprev_start: %ld\n", curr->prev_start-top);
+        printf("\tchunk_start: %ld\n", curr->chunk_start-top);
+            printf("\t\tValue   : %s\n", (char*)curr->chunk_start+sizeof(Chunk));
+            printf("\t\tVal size: %ld\n", curr->chunk_end-curr->chunk_start-sizeof(Chunk));
+        printf("\tchunk_end: %ld\n", curr->chunk_end-top);
+        printf("\tnext_start: %ld\n", curr->next_start-top);
+    }
 }
