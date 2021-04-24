@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "allocator.h"
-
 #ifndef BLOCK_SIZE
     #define BLOCK_SIZE 4096
 #endif 

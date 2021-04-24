@@ -1,7 +1,7 @@
 #pragma once
 
-void *cust_malloc(size_t size);
+extern void *malloc(size_t size);
 
-void cust_free(void *ptr);
+extern void free(void *ptr);
 
 void heapdump();
