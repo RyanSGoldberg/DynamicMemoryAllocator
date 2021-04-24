@@ -3,8 +3,11 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#define BLOCK_SIZE  128 // 4096 // Pagesize on my machine
-#define VERBOSE     0
+#include "allocator.h"
+
+#ifndef BLOCK_SIZE
+    #define BLOCK_SIZE 4096
+#endif 
 
 typedef struct {
     void *prev_start;
@@ -13,13 +16,27 @@ typedef struct {
     void *next_start;
 }  Chunk;
 
-// The number of allocated block
+// The number of allocated blocks
 int num_blks = 0;
-
 // A pointer to the top of the heap
 void *top = NULL;
 // A pointer to the first Chunk on the heap
 void *first;
+
+/*
+* Returns the block that ptr is in (as a relative offset from top)
+*/
+int block_number(void *ptr){
+    return 1 + (uintptr_t)(ptr - top) / BLOCK_SIZE;
+}
+
+
+/*
+* Checks if the boundary between 2 blocks in crossed by a chunk
+*/
+int crosses_block_boundary(void * chunk_start, size_t total_size){
+    return block_number(chunk_start) != block_number(chunk_start + total_size);
+}
 
 /*
 * Initialize a chunk at <chunk_start> of size <size>
@@ -33,14 +50,11 @@ void init_chunk(void *prev_start, void *chunk_start, size_t size, void *next_sta
     chunk->next_start = next_start;
 }
 
-int crosses_block_boundary(void * chunk_start, size_t total_size){
-    int start_blk = (uintptr_t)(chunk_start - top) / BLOCK_SIZE;
-    int   end_blk = (uintptr_t)(chunk_start + total_size - top) / BLOCK_SIZE;
-    return start_blk != end_blk;
-}
-
+/*
+* malloc which uses a first fit algorithm
+*/
 void *cust_malloc(size_t size){
-    // FOR NOW ASSUME size < SIZE_BLOCK
+                            // FOR NOW ASSUME size < SIZE_BLOCK
     // A pointer to the new chunk to be created
     void *new_chunk_start;
     Chunk * curr = (Chunk *)first;
@@ -48,25 +62,25 @@ void *cust_malloc(size_t size){
     // For the very first chunk allocated, do some initial setup
     if(NULL == first){
         top = sbrk(0);
-        sbrk(BLOCK_SIZE); // TODO check for return -1
+        if((void *)-1 == sbrk(BLOCK_SIZE)) {perror("malloc"); exit(1);} // TODO check for return -1
         num_blks++;
         first = top;
         new_chunk_start = first;
         init_chunk(NULL, first, size, NULL);
     // Fills in top to first if there is enough space and it is empty
-    }else if(first != top && curr->chunk_start - top > size+sizeof(Chunk)){
+    }else if(first != top && curr->chunk_start - top > size+sizeof(Chunk)+1){
         first = top;
         new_chunk_start = first;
         init_chunk(NULL, first, size, curr->chunk_start);
     }else{
         // Finds the next empty space with enough room or the end of the list
-        Chunk * next = (Chunk *)(curr->next_start);
-        for(;NULL != curr->next_start && (next->chunk_start - curr->chunk_end < size+sizeof(Chunk));
-        curr = next, next = (Chunk *)(next->next_start));
-
+        Chunk *next;
+        for(next = (Chunk *)(curr->next_start);
+            NULL != curr->next_start && (next->chunk_start - curr->chunk_end <= size+sizeof(Chunk)+1);
+            curr = next, next = (Chunk *)(next->next_start));
         new_chunk_start = curr->chunk_end+1;
         if(crosses_block_boundary(new_chunk_start, size+sizeof(Chunk))){
-            sbrk(BLOCK_SIZE);
+            if((void*) -1 == sbrk(BLOCK_SIZE)){perror("malloc"); exit(1);}
             num_blks++;
         }
 
@@ -77,7 +91,7 @@ void *cust_malloc(size_t size){
             // Attach it on the back end
             curr->next_start = ((Chunk *)new_chunk_start)->chunk_start;
         }else{
-            // Insert the new chunk into the open slot
+            // Insert the new chunk into the open slot between 2 chunks
             init_chunk(curr->chunk_start, new_chunk_start, size, next->chunk_start);
             // Attach it on either end
             curr->next_start = new_chunk_start;
@@ -88,7 +102,11 @@ void *cust_malloc(size_t size){
     return new_chunk_start+sizeof(Chunk);
 }
 
-void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
+/*
+* Free an allocated chunk of memory
+* It is assumed the user will pass a valid pointer (i.e one which was returned my cust_malloc)
+*/
+void cust_free(void *ptr){
     Chunk * curr = (Chunk *)(ptr-sizeof(Chunk));
     Chunk *prev = ((Chunk *)curr->prev_start);
     Chunk *next = ((Chunk *)curr->next_start);
@@ -114,11 +132,12 @@ void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
 
     // Remove a block if it is no longer needed
     if(NULL == first){
-        int blks_to_remove = ((uintptr_t)(curr->chunk_end - top) / BLOCK_SIZE)+1;
+        int blks_to_remove = block_number(curr->chunk_end);
         if((void *)-1 == sbrk(-1 * blks_to_remove * BLOCK_SIZE)) perror("free");
         num_blks-= blks_to_remove;
     }else if(NULL != prev && NULL == prev->next_start 
-        && !crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start)){
+        && !crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start) &&
+        (block_number(curr->chunk_start) != block_number(prev->chunk_end))){
         if((void *)-1 == sbrk(-1 * BLOCK_SIZE)) perror("free");
         num_blks--;
     }
@@ -133,12 +152,26 @@ void heapdump(){
     Chunk * curr = (Chunk *)first;
     for(int i = 0; NULL != curr; curr = (Chunk *)(curr->next_start), i++){
         printf("###################################\n");
-        printf("Chunk #%d\n", i);
-        printf("\tprev_start: %ld\n", curr->prev_start-top);
+        printf("Chunk #%d - ", i);
+        if(crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start)){
+            printf("Blocks %d-%d\n", block_number(curr->chunk_start), block_number(curr->chunk_end));
+        }else{
+            printf("Block %d\n", block_number(curr->chunk_end));
+        }
+
+        if(0 > curr->prev_start-top){
+            printf("\tprev_start: (nil)\n");
+        }else{
+            printf("\tprev_start: %ld\n", curr->prev_start-top);
+        }
         printf("\tchunk_start: %ld\n", curr->chunk_start-top);
             printf("\t\tValue   :%s\n", (char*)curr->chunk_start+sizeof(Chunk));
             printf("\t\tVal size:%ld\n", curr->chunk_end-curr->chunk_start-sizeof(Chunk));
         printf("\tchunk_end: %ld\n", curr->chunk_end-top);
-        printf("\tnext_start: %ld\n", curr->next_start-top);
+        if(0 > curr->next_start-top){
+            printf("\tnext_start: (nil)\n");
+        }else{
+            printf("\tnext_start: %ld\n", curr->next_start-top);
+        }
     }
 }
