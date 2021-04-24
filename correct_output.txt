@@ -1,0 +1,109 @@
+Beginnings Tests
+Printing the values on the heap ... 
+Block Count: 2
+###################################
+Chunk #0 - Block 1
+	prev_start: (nil)
+	chunk_start: 0
+		Value   :HelloWorld
+		Val size:11
+	chunk_end: 43
+	next_start: 44
+###################################
+Chunk #1 - Block 1
+	prev_start: 0
+	chunk_start: 44
+		Value   :FooBar!
+		Val size:8
+	chunk_end: 84
+	next_start: 85
+###################################
+Chunk #2 - Blocks 1-2
+	prev_start: 44
+	chunk_start: 85
+		Value   :ShalomOlam
+		Val size:11
+	chunk_end: 128
+	next_start: (nil)
+Printing the values on the heap ... 
+Block Count: 2
+###################################
+Chunk #0 - Block 1
+	prev_start: (nil)
+	chunk_start: 0
+		Value   :HelloWorld
+		Val size:11
+	chunk_end: 43
+	next_start: 85
+###################################
+Chunk #1 - Blocks 1-2
+	prev_start: 0
+	chunk_start: 85
+		Value   :ShalomOlam
+		Val size:11
+	chunk_end: 128
+	next_start: 129
+###################################
+Chunk #2 - Block 2
+	prev_start: 85
+	chunk_start: 129
+		Value   :5
+		Val size:1
+	chunk_end: 162
+	next_start: 163
+###################################
+Chunk #3 - Block 2
+	prev_start: 129
+	chunk_start: 163
+		Value   :foobar!1
+		Val size:9
+	chunk_end: 204
+	next_start: (nil)
+Printing the values on the heap ... 
+Block Count: 2
+###################################
+Chunk #0 - Block 1
+	prev_start: (nil)
+	chunk_start: 0
+		Value   :FooBar!
+		Val size:8
+	chunk_end: 40
+	next_start: 85
+###################################
+Chunk #1 - Blocks 1-2
+	prev_start: (nil)
+	chunk_start: 85
+		Value   :ShalomOlam
+		Val size:11
+	chunk_end: 128
+	next_start: 129
+###################################
+Chunk #2 - Block 2
+	prev_start: 85
+	chunk_start: 129
+		Value   :5
+		Val size:1
+	chunk_end: 162
+	next_start: 163
+###################################
+Chunk #3 - Block 2
+	prev_start: 129
+	chunk_start: 163
+		Value   :foobar!1
+		Val size:9
+	chunk_end: 204
+	next_start: (nil)
+Printing the values on the heap ... 
+Block Count: 0
+Printing the values on the heap ... 
+Block Count: 3
+###################################
+Chunk #0 - Blocks 1-3
+	prev_start: (nil)
+	chunk_start: 0
+		Value   :aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+		Val size:257
+	chunk_end: 289
+	next_start: (nil)
+Printing the values on the heap ... 
+Block Count: 0

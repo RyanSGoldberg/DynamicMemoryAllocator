@@ -54,7 +54,7 @@ void init_chunk(void *prev_start, void *chunk_start, size_t size, void *next_sta
 * malloc which uses a first fit algorithm
 */
 void *cust_malloc(size_t size){
-                            // FOR NOW ASSUME size < SIZE_BLOCK
+    int blocks_needed = 1 + size / BLOCK_SIZE;
     // A pointer to the new chunk to be created
     void *new_chunk_start;
     Chunk * curr = (Chunk *)first;
@@ -62,8 +62,8 @@ void *cust_malloc(size_t size){
     // For the very first chunk allocated, do some initial setup
     if(NULL == first){
         top = sbrk(0);
-        if((void *)-1 == sbrk(BLOCK_SIZE)) {perror("malloc"); exit(1);} // TODO check for return -1
-        num_blks++;
+        if((void *)-1 == sbrk(blocks_needed* BLOCK_SIZE)) {perror("malloc"); exit(1);}
+        num_blks+= blocks_needed;
         first = top;
         new_chunk_start = first;
         init_chunk(NULL, first, size, NULL);
@@ -80,8 +80,8 @@ void *cust_malloc(size_t size){
             curr = next, next = (Chunk *)(next->next_start));
         new_chunk_start = curr->chunk_end+1;
         if(crosses_block_boundary(new_chunk_start, size+sizeof(Chunk))){
-            if((void*) -1 == sbrk(BLOCK_SIZE)){perror("malloc"); exit(1);}
-            num_blks++;
+            if((void*) -1 == sbrk(blocks_needed* BLOCK_SIZE)){perror("malloc"); exit(1);}
+            num_blks+= blocks_needed;
         }
 
         // We have reached the end since there was no space earlier
@@ -131,15 +131,13 @@ void cust_free(void *ptr){
     curr->prev_start = NULL;
 
     // Remove a block if it is no longer needed
-    if(NULL == first){
+    if(NULL == first ||
+    (NULL != prev && NULL == prev->next_start 
+        && !crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start) &&
+        (block_number(curr->chunk_start) != block_number(prev->chunk_end)))){
         int blks_to_remove = block_number(curr->chunk_end);
         if((void *)-1 == sbrk(-1 * blks_to_remove * BLOCK_SIZE)) perror("free");
         num_blks-= blks_to_remove;
-    }else if(NULL != prev && NULL == prev->next_start 
-        && !crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start) &&
-        (block_number(curr->chunk_start) != block_number(prev->chunk_end))){
-        if((void *)-1 == sbrk(-1 * BLOCK_SIZE)) perror("free");
-        num_blks--;
     }
 }
 

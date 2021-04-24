@@ -17,5 +17,5 @@ clean:
 tests: clean allocator_test
 		./allocator_test > output.txt;                     \
 		diff correct_output.txt output.txt > /dev/null;    \
-		if [ $$? -eq 0 ]; then echo "Tests Passed"; else diff -y --suppress-common-lines correct_output.txt output.txt || exit 0; fi;\
+		if [ $$? -eq 0 ]; then echo "Tests Passed"; else diff -y --suppress-common-lines correct_output.txt output.txt || true; fi;\
 		rm -f output.txt   		

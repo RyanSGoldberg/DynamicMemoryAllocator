@@ -42,4 +42,13 @@ int main(int argc, char **argv){
     cust_free(i);
     cust_free(y);
     heapdump();
+    char *s = cust_malloc(257);
+    for(int i = 0; i < 257; i++){
+        s[i] = 'a';
+    }
+    s[256] = '\0';
+    heapdump();
+    cust_free(s);
+    heapdump();
+    
 }
