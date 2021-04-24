@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #define BLOCK_SIZE  128 // 4096 // Pagesize on my machine
+#define VERBOSE     0
 
 typedef struct {
     void *prev_start;
@@ -10,6 +12,9 @@ typedef struct {
     void *chunk_end;
     void *next_start;
 }  Chunk;
+
+// The number of allocated block
+int num_blks = 0;
 
 // A pointer to the top of the heap
 void *top = NULL;
@@ -28,6 +33,12 @@ void init_chunk(void *prev_start, void *chunk_start, size_t size, void *next_sta
     chunk->next_start = next_start;
 }
 
+int crosses_block_boundary(void * chunk_start, size_t total_size){
+    int start_blk = (uintptr_t)(chunk_start - top) / BLOCK_SIZE;
+    int   end_blk = (uintptr_t)(chunk_start + total_size - top) / BLOCK_SIZE;
+    return start_blk != end_blk;
+}
+
 void *cust_malloc(size_t size){
     // FOR NOW ASSUME size < SIZE_BLOCK
     // A pointer to the new chunk to be created
@@ -38,6 +49,7 @@ void *cust_malloc(size_t size){
     if(NULL == first){
         top = sbrk(0);
         sbrk(BLOCK_SIZE); // TODO check for return -1
+        num_blks++;
         first = top;
         new_chunk_start = first;
         init_chunk(NULL, first, size, NULL);
@@ -52,8 +64,12 @@ void *cust_malloc(size_t size){
         for(;NULL != curr->next_start && (next->chunk_start - curr->chunk_end < size+sizeof(Chunk));
         curr = next, next = (Chunk *)(next->next_start));
 
-        new_chunk_start = curr->chunk_end+1; // TODO Assume for now that we don't need additional blocks
-        
+        new_chunk_start = curr->chunk_end+1;
+        if(crosses_block_boundary(new_chunk_start, size+sizeof(Chunk))){
+            sbrk(BLOCK_SIZE);
+            num_blks++;
+        }
+
         // We have reached the end since there was no space earlier
         if(NULL == curr->next_start){ 
             // Insert the new chunk at the end
@@ -76,7 +92,6 @@ void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
     Chunk * curr = (Chunk *)(ptr-sizeof(Chunk));
     Chunk *prev = ((Chunk *)curr->prev_start);
     Chunk *next = ((Chunk *)curr->next_start);
-
     // The last element on the heap
     if(prev != NULL && next == NULL){ 
         prev->next_start = NULL;
@@ -88,7 +103,7 @@ void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
     }else if(prev != NULL && next != NULL){
         prev->next_start = next->chunk_start;
         next->prev_start = prev->chunk_start;
-    // Remove the last element
+    // Remove the only element
     }else{ 
         first = NULL; 
     }
@@ -96,6 +111,17 @@ void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
      // Remove the pointers from curr to its neighbours
     curr->next_start = NULL;
     curr->prev_start = NULL;
+
+    // Remove a block if it is no longer needed
+    if(NULL == first){
+        int blks_to_remove = ((uintptr_t)(curr->chunk_end - top) / BLOCK_SIZE)+1;
+        if((void *)-1 == sbrk(-1 * blks_to_remove * BLOCK_SIZE)) perror("free");
+        num_blks-= blks_to_remove;
+    }else if(NULL != prev && NULL == prev->next_start 
+        && !crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start)){
+        if((void *)-1 == sbrk(-1 * BLOCK_SIZE)) perror("free");
+        num_blks--;
+    }
 }
 
 /*
@@ -103,6 +129,7 @@ void cust_free(void *ptr){ // Assume for now that they MUST pass a valid pointer
 */
 void heapdump(){
     printf("Printing the values on the heap ... \n");
+    printf("Block Count: %d\n", num_blks);
     Chunk * curr = (Chunk *)first;
     for(int i = 0; NULL != curr; curr = (Chunk *)(curr->next_start), i++){
         printf("###################################\n");
