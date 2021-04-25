@@ -2,6 +2,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#include "print.h"
+
 
 #ifndef BLOCK_SIZE
     #define BLOCK_SIZE 4096
@@ -15,7 +17,7 @@ typedef struct {
 }  Chunk;
 
 // The number of allocated blocks
-int num_blks = 0;
+long num_blks = 0;
 // A pointer to the top of the heap
 void *top = NULL;
 // A pointer to the first Chunk on the heap
@@ -51,7 +53,7 @@ void init_chunk(void *prev_start, void *chunk_start, size_t size, void *next_sta
 /*
 * malloc which uses a first fit algorithm
 */
-void *cust_malloc(size_t size){
+void *malloc(size_t size){
     int blocks_needed = 1 + size / BLOCK_SIZE;
     // A pointer to the new chunk to be created
     void *new_chunk_start;
@@ -104,7 +106,7 @@ void *cust_malloc(size_t size){
 * Free an allocated chunk of memory
 * It is assumed the user will pass a valid pointer (i.e one which was returned my cust_malloc)
 */
-void cust_free(void *ptr){
+void free(void *ptr){
     Chunk * curr = (Chunk *)(ptr-sizeof(Chunk));
     Chunk *prev = ((Chunk *)curr->prev_start);
     Chunk *next = ((Chunk *)curr->next_start);
@@ -143,31 +145,32 @@ void cust_free(void *ptr){
 * Print the contents of the heap to stdout
 */
 void heapdump(){
-    printf("Printing the values on the heap ... \n");
-    printf("Block Count: %d\n", num_blks);
+    print("Printing the values on the heap ... \n");
+    printd("Block Count: %d\n", num_blks);
     Chunk * curr = (Chunk *)first;
     for(int i = 0; NULL != curr; curr = (Chunk *)(curr->next_start), i++){
-        printf("###################################\n");
-        printf("Chunk #%d - ", i);
+        print("###################################\n");
+        printd("Chunk #%d - ", (long) i);
         if(crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start)){
-            printf("Blocks %d-%d\n", block_number(curr->chunk_start), block_number(curr->chunk_end));
+            printd("Blocks %d-", (long)block_number(curr->chunk_start));
+            printd("%d\n", (long)block_number(curr->chunk_end));
         }else{
-            printf("Block %d\n", block_number(curr->chunk_end));
+            printd("Block %d\n", (long)block_number(curr->chunk_end));
         }
 
         if(0 > curr->prev_start-top){
-            printf("\tprev_start: (nil)\n");
+            print("\tprev_start: (nil)\n");
         }else{
-            printf("\tprev_start: %ld\n", curr->prev_start-top);
+            printd("\tprev_start: %d\n", (long)(curr->prev_start-top));
         }
-        printf("\tchunk_start: %ld\n", curr->chunk_start-top);
-            printf("\t\tValue   :%s\n", (char*)curr->chunk_start+sizeof(Chunk));
-            printf("\t\tVal size:%ld\n", curr->chunk_end-curr->chunk_start-sizeof(Chunk));
-        printf("\tchunk_end: %ld\n", curr->chunk_end-top);
+        printd("\tchunk_start: %d\n", (long)(curr->chunk_start-top));
+            prints("\t\tValue   :%s\n", (char*)curr->chunk_start+sizeof(Chunk));
+            printd("\t\tVal size:%d\n", (long)(curr->chunk_end-curr->chunk_start-sizeof(Chunk)));
+        printd("\tchunk_end: %d\n", (long)(curr->chunk_end-top));
         if(0 > curr->next_start-top){
-            printf("\tnext_start: (nil)\n");
+            print("\tnext_start: (nil)\n");
         }else{
-            printf("\tnext_start: %ld\n", curr->next_start-top);
+            printd("\tnext_start: %d\n", (long)(curr->next_start-top));
         }
     }
 }

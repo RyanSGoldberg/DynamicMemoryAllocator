@@ -1,4 +1,5 @@
-#include <stdio.h>
+#include <stdlib.h>
+#include "print.h"
 #include "allocator.h"
 #include <string.h>
 
@@ -10,7 +11,6 @@
 
 
 int main(int argc, char **argv){
-    printf("Beginnings Tests\n");
     // Fill the heap with back to back elements
     char *x = malloc(strlen(a)+1);
     strncpy(x, a, strlen(a)+1);

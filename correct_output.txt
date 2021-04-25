@@ -1,4 +1,3 @@
-Beginnings Tests
 Printing the values on the heap ... 
 Block Count: 2
 ###################################
