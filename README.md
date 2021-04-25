@@ -1,11 +1,10 @@
 # DynamicMemoryAllocator
 
-## How to replace the dynamic memory allocator in stdlib.h
-1. (Recommended) Start a subshell  
-2. Add the the shared obect to LD_PRELOAD  
-    ```export LD_PRELOAD=`pwd`"/libryan.so"```
-3. Run make
-4. Run you program as normal
+## How to replace the malloc and free in stdlib.h
+1. Run ```make```
+2. Add the current directory absolute path to LD_LIBRARY_PATH
+    ```export LD_LIBRARY_PATH=$PWD:${LD_LIBRARY_PATH}```
+3. Run your programs as normal
 
 ## Running the tests
 Run ```make BLOCK_SIZE=128 tests```
