@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <errno.h>
 #include "print.h"
 
 
@@ -54,6 +55,8 @@ void init_chunk(void *prev_start, void *chunk_start, size_t size, void *next_sta
 * malloc which uses a first fit algorithm
 */
 void *malloc(size_t size){
+    if (size <= 0) return NULL;
+
     int blocks_needed = 1 + size / BLOCK_SIZE;
     // A pointer to the new chunk to be created
     void *new_chunk_start;
@@ -62,7 +65,7 @@ void *malloc(size_t size){
     // For the very first chunk allocated, do some initial setup
     if(NULL == first){
         top = sbrk(0);
-        if((void *)-1 == sbrk(blocks_needed* BLOCK_SIZE)) {perror("malloc"); exit(1);}
+        if((void *)-1 == sbrk(blocks_needed* BLOCK_SIZE)) return NULL;
         num_blks+= blocks_needed;
         first = top;
         new_chunk_start = first;
@@ -80,7 +83,7 @@ void *malloc(size_t size){
             curr = next, next = (Chunk *)(next->next_start));
         new_chunk_start = curr->chunk_end+1;
         if(crosses_block_boundary(new_chunk_start, size+sizeof(Chunk))){
-            if((void*) -1 == sbrk(blocks_needed* BLOCK_SIZE)){perror("malloc"); exit(1);}
+            if((void*) -1 == sbrk(blocks_needed* BLOCK_SIZE)) return NULL;
             num_blks+= blocks_needed;
         }
 
@@ -107,6 +110,8 @@ void *malloc(size_t size){
 * It is assumed the user will pass a valid pointer (i.e one which was returned my cust_malloc)
 */
 void free(void *ptr){
+    if (NULL == ptr) return;
+
     Chunk * curr = (Chunk *)(ptr-sizeof(Chunk));
     Chunk *prev = ((Chunk *)curr->prev_start);
     Chunk *next = ((Chunk *)curr->next_start);
@@ -136,10 +141,67 @@ void free(void *ptr){
         && !crosses_block_boundary(curr->chunk_start, curr->chunk_end-curr->chunk_start) &&
         (block_number(curr->chunk_start) != block_number(prev->chunk_end)))){
         int blks_to_remove = block_number(curr->chunk_end);
-        if((void *)-1 == sbrk(-1 * blks_to_remove * BLOCK_SIZE)) perror("free");
+        if((void *)-1 == sbrk(-1 * blks_to_remove * BLOCK_SIZE)) {perror("malloc"); exit(1);}
         num_blks-= blks_to_remove;
     }
 }
+
+void *calloc(size_t nmemb, size_t size){
+    if(nmemb <= 0) return NULL;
+    // Check if integer overflow will occur
+    if((nmemb * size)/size != nmemb) return (void *)-1;
+    // Allocate the memory
+    void *ptr = malloc(nmemb * size);
+    // Zero the memory
+    for(int i = 0;i < nmemb * size; i++){
+        ((char*)ptr)[i] = 0;
+    }
+    return ptr;
+}
+
+void *realloc(void *ptr, size_t size){
+    if (NULL == ptr){
+        return malloc(size);
+    }
+    if(0 == size && NULL != ptr){
+        free(ptr);
+        return NULL;
+    }
+    Chunk * chunk = (Chunk *)(ptr-sizeof(Chunk));
+    long old_size = chunk->chunk_end-chunk->next_start+1;
+    if(size < old_size){
+        chunk->chunk_end -= (old_size-size);
+        return ptr;
+    }else if(size > old_size){
+        // Check if there is space to just expand this chunk
+        if((chunk->next_start - chunk->chunk_end-1) >= (size-old_size)){
+            chunk->chunk_end += size-old_size;
+        }else{
+            void *new_ptr = malloc(size);
+            // Copy over the old memory
+            for(int b = 0; b < size; b++){
+                ((char *)new_ptr)[b] = ((char *)ptr)[b];
+            }
+            free(ptr);
+            return new_ptr;
+        }
+    }else{
+        return ptr;
+    }
+    // Should never get here
+    return (void *)-1;
+}
+
+void *reallocarray(void *ptr, size_t nmemb, size_t size){
+    if(nmemb <= 0) return NULL;
+    // Check if integer overflow will occur
+    if((nmemb * size)/size != nmemb){
+        errno = ENOMEM;
+        return NULL;
+    }
+    return realloc(ptr, nmemb * size);
+}
+
 
 /*
 * Print the contents of the heap to stdout
