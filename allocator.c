@@ -146,6 +146,9 @@ void free(void *ptr){
     }
 }
 
+/*
+* Like malloc but it checks for overflow on nmemb * size and zeros the memory
+*/
 void *calloc(size_t nmemb, size_t size){
     if(nmemb <= 0) return NULL;
     // Check if integer overflow will occur
@@ -159,6 +162,10 @@ void *calloc(size_t nmemb, size_t size){
     return ptr;
 }
 
+/*
+* Reallocates a pointer with a new size (either bigger or smaller than previously if it existed)
+* Note the new grown memory is not initialized
+*/
 void *realloc(void *ptr, size_t size){
     if (NULL == ptr){
         return malloc(size);
@@ -192,6 +199,9 @@ void *realloc(void *ptr, size_t size){
     return (void *)-1;
 }
 
+/*
+* Like realloc but it checks for overflow 
+*/
 void *reallocarray(void *ptr, size_t nmemb, size_t size){
     if(nmemb <= 0) return NULL;
     // Check if integer overflow will occur
