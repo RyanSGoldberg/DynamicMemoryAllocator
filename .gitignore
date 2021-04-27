@@ -1,0 +1,4 @@
+allocator.o
+allocator_test
+libryan.so
+print.o
